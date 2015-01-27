@@ -9,7 +9,7 @@ $service->CONSUMER_KEY = CONSUMER_KEY;
 $service->CONSUMER_SECRET = CONSUMER_SECRET;
 $service->load_secure_tokens();
 $service->detect_oauth_verifier();
-$check = $service->request_access_token();
+$check = $service->request_oauth_access_token();
 if($check){
   $service->store_secure_tokens();
   echo 'TODO BIEN';

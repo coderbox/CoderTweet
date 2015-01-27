@@ -1,6 +1,23 @@
 <?php
 include_once 'config.php';
 
+include_once 'core/CoderTweet.php';
+
+$params = array(
+    'status' => 'Testing now ' . time(),
+    'media_ids' => '560082257315393536'
+);
+
+$service = new CoderTweet();
+$service->CALLBACK_URL = CALLBACK_URL;
+$service->CONSUMER_KEY = CONSUMER_KEY;
+$service->CONSUMER_SECRET = CONSUMER_SECRET;
+$service->load_secure_tokens();
+$response = $service->request_statuses_update($params);
+echo '<pre>';
+print_r($response);
+echo '</pre>';
+/*
 $nonce = md5(time());
 $timestamp = time();
 $status = 'Testing now ' . time();
@@ -63,4 +80,5 @@ echo '<pre>';
   //echo "\nhttps://api.twitter.com/oauth/authorize?oauth_token=";
   echo '</pre>';
   curl_close($ch);
+  */
 ?>

@@ -8,6 +8,8 @@ $service->CALLBACK_URL = CALLBACK_URL;
 $service->CONSUMER_KEY = CONSUMER_KEY;
 $service->CONSUMER_SECRET = CONSUMER_SECRET;
 $service->load_secure_tokens();
-$service->request_account_verify_credentials();
-
+$credentials = $service->request_account_verify_credentials();
+echo '<pre>';
+print_r($credentials);
+echo '</pre>';
 ?>

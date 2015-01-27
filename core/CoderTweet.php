@@ -102,7 +102,6 @@ final class CoderTweet{
     $this->oauth_timestamp = time();
 
     $request_params = array(
-      'oauth_callback' => $this->CALLBACK_URL,
       'oauth_consumer_key' => $this->CONSUMER_KEY,
       'oauth_nonce' => $this->oauth_nonce,
       'oauth_signature_method' => $this->oauth_signature_method,
@@ -119,16 +118,7 @@ final class CoderTweet{
     $this->_generate_oauth_signature('POST', $request_url, $request_params, $keys);
 
     $headers[] = 'User-Agent: ' . $this->user_agent;
-
-    $headers[] = "Authorization:
-                      OAuth oauth_callback=\"" . rawurlencode($this->CALLBACK_URL) . "\",
-                            oauth_consumer_key=\"{$this->CONSUMER_KEY}\",
-                            oauth_nonce=\"" . $this->oauth_nonce . "\",
-                            oauth_signature=\"" . rawurlencode($this->oauth_signature) . "\",
-                            oauth_signature_method=\"{$this->oauth_signature_method}\",
-                            oauth_timestamp=\"{$this->oauth_timestamp}\",
-                            oauth_token=\"{$this->oauth_token}\",
-                            oauth_version=\"{$this->oauth_version}\"";
+    $headers[] = $this->_user_context_authorization_header();
 
     $curl_options = $this->curl_default_options;
     $curl_options[CURLOPT_URL] = $request_url;
@@ -152,7 +142,6 @@ final class CoderTweet{
     $this->oauth_timestamp = time();
 
     $request_params = array(
-      'oauth_callback' => $this->CALLBACK_URL,
       'oauth_consumer_key' => $this->CONSUMER_KEY,
       'oauth_nonce' => $this->oauth_nonce,
       'oauth_signature_method' => $this->oauth_signature_method,
@@ -168,16 +157,7 @@ final class CoderTweet{
     $this->_generate_oauth_signature('GET', $request_url, $request_params, $keys);
 
     $headers[] = 'User-Agent: ' . $this->user_agent;
-
-    $headers[] = "Authorization:
-                      OAuth oauth_callback=\"" . rawurlencode($this->CALLBACK_URL) . "\",
-                            oauth_consumer_key=\"{$this->CONSUMER_KEY}\",
-                            oauth_nonce=\"" . $this->oauth_nonce . "\",
-                            oauth_signature=\"" . rawurlencode($this->oauth_signature) . "\",
-                            oauth_signature_method=\"{$this->oauth_signature_method}\",
-                            oauth_timestamp=\"{$this->oauth_timestamp}\",
-                            oauth_token=\"{$this->oauth_token}\",
-                            oauth_version=\"{$this->oauth_version}\"";
+    $headers[] = $this->_user_context_authorization_header();
 
     $curl_options = $this->curl_default_options;
     $curl_options[CURLOPT_URL] = $request_url;
@@ -192,6 +172,88 @@ final class CoderTweet{
     }
   }
 
+  public function request_media_upload($media_content){
+
+    if(empty($media_content)){
+      throw new CoderTweetException('media content is empty');
+    }
+
+    $this->oauth_nonce = md5(time());
+    $this->oauth_timestamp = time();
+
+    $request_params = array(
+      'oauth_consumer_key' => $this->CONSUMER_KEY,
+      'oauth_nonce' => $this->oauth_nonce,
+      'oauth_signature_method' => $this->oauth_signature_method,
+      'oauth_timestamp' => $this->oauth_timestamp,
+      'oauth_token' => $this->oauth_token,
+      'oauth_version' => $this->oauth_version
+    );
+
+    $request_url = 'https://upload.twitter.com/1.1/media/upload.json';
+    $keys = array($this->CONSUMER_SECRET, $this->oauth_token_secret);
+
+    $this->_generate_oauth_signature('POST', $request_url, $request_params, $keys);
+
+    $headers[] = 'User-Agent: ' . $this->user_agent;
+    $headers[] = 'Content-Type: multipart/form-data';
+    $headers[] = $this->_user_context_authorization_header();
+    $curl_options = $this->curl_default_options;
+    $curl_options[CURLOPT_URL] = $request_url;
+    $curl_options[CURLOPT_POST] = TRUE;
+    $curl_options[CURLOPT_POSTFIELDS] = array('media'=> $media_content);
+    $curl_options[CURLOPT_HTTPHEADER] = $headers;
+    try{
+      $response = $this->_send_request($curl_options, self::RESPONSE_JSON);
+      return $response->body;
+    }catch(Exception $ex){
+      $this->_handle_exception($ex);
+      return FALSE;
+    }
+  }
+
+  public function request_statuses_update($params){
+
+    if(!isset($params['status'])){
+      throw new CoderTweetException('required status parameter');
+    }
+
+    $this->oauth_nonce = md5(time());
+    $this->oauth_timestamp = time();
+
+    $request_params = array(
+      'oauth_consumer_key' => $this->CONSUMER_KEY,
+      'oauth_nonce' => $this->oauth_nonce,
+      'oauth_signature_method' => $this->oauth_signature_method,
+      'oauth_timestamp' => $this->oauth_timestamp,
+      'oauth_token' => $this->oauth_token,
+      'oauth_version' => $this->oauth_version,
+    );
+
+    $request_params = $request_params + $params;
+
+    ksort($request_params);
+
+    $request_url = 'https://api.twitter.com/1.1/statuses/update.json';
+    $keys = array($this->CONSUMER_SECRET, $this->oauth_token_secret);
+
+    $this->_generate_oauth_signature('POST', $request_url, $request_params, $keys);
+
+    $headers[] = 'User-Agent: ' . $this->user_agent;
+    $headers[] = $this->_user_context_authorization_header();
+    $curl_options = $this->curl_default_options;
+    $curl_options[CURLOPT_URL] = $request_url;
+    $curl_options[CURLOPT_POST] = TRUE;
+    $curl_options[CURLOPT_POSTFIELDS] = http_build_query($params,'', '&', PHP_QUERY_RFC3986);;
+    $curl_options[CURLOPT_HTTPHEADER] = $headers;
+    try{
+      $response = $this->_send_request($curl_options, self::RESPONSE_JSON);
+      return $response->body;
+    }catch(Exception $ex){
+      $this->_handle_exception($ex);
+      return FALSE;
+    }
+  }
   public function detect_oauth_verifier(){
     if(isset($_GET['oauth_verifier'])){
       $this->oauth_verifier = $_GET['oauth_verifier'];
@@ -291,6 +353,18 @@ final class CoderTweet{
         return $response;
       }
     }
+  }
+
+  private function _user_context_authorization_header(){
+    $authorization = "Authorization:
+                          OAuth oauth_consumer_key=\"{$this->CONSUMER_KEY}\",
+                                oauth_nonce=\"" . $this->oauth_nonce . "\",
+                                oauth_signature=\"" . rawurlencode($this->oauth_signature) . "\",
+                                oauth_signature_method=\"{$this->oauth_signature_method}\",
+                                oauth_timestamp=\"{$this->oauth_timestamp}\",
+                                oauth_token=\"{$this->oauth_token}\",
+                                oauth_version=\"{$this->oauth_version}\"";
+    return $authorization;
   }
 
   private function _handle_exception($ex){
